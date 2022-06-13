@@ -1,0 +1,294 @@
+library(readxl)
+library(SciViews)
+library(car)
+
+setwd("/Users/User/Desktop/League of Legends Excel Databases")
+getwd()
+proMidlaner_data = read_excel("pro midlaner stats Worlds.xlsx")
+
+proMidlaner.df = proMidlaner_data
+summary(proMidlaner.df)
+
+par(bg = "white")
+
+plot(proMidlaner.df)
+
+par(mfrow = c(1,1))
+
+par(mfrow = c(4,2))
+Kills = proMidlaner.df$Kills
+Deaths = proMidlaner.df$Deaths
+Assists = proMidlaner.df$Assists #assigns variables so its easier to plot things
+KDA = proMidlaner.df$KDA
+WinRate = proMidlaner.df$WinRate
+CS = proMidlaner.df$CS
+CSperMin = proMidlaner.df$CSperMin
+Gold = proMidlaner.df$Gold
+GoldperMin = proMidlaner.df$GoldperMin
+Kpar = proMidlaner.df$Kpar
+
+# (Kills) #mean is 3.29
+# sd(Kills) #standard dev is 1.24
+# 
+# #we now want to see if this data is normally distributed
+# 
+# kills_mean = 3.293758
+# kills_sd = 1.245573
+# 
+# lower_boundKills = kills_mean - kills_sd
+# upper_boundKills = kills_mean + kills_sd
+# 
+# x = seq(-4, 4, length = 1000) * kills_sd + kills_mean
+# y = dnorm(x, kills_mean, kills_sd)
+# 
+# par(mfrow = c(1,2))
+# 
+# plot(x,y, type = "l", lwd = 2, axes = FALSE, xlab = "No. of Standard Deviations from the Mean", 
+#      ylab = "Frequencies")
+# sd_axis_bounds = 5
+# axis_bounds <- seq(-sd_axis_bounds * kills_sd + kills_mean,
+#                    sd_axis_bounds * kills_sd + kills_mean,
+#                    by = kills_sd)
+# axis(side = 1, at = axis_bounds, pos = 0) #this plots a normal distribution for Kills data within 4
+# #standard deviations of the mean
+# 
+# hist(Kills, freq = FALSE, col = "red")
+# 
+# zscore_Kills = ((Kills - kills_sd)/kills_mean)
+# zscore_Kills #we now have the z-scores for every single value of Kills in the dataset. We can use this to
+# #construct the Q-Q plot
+
+# par(mfrow = c(1,1))
+# 
+# plot(Kills ~ zscore_Kills)
+# 
+# qqnorm(Kills)
+
+plot(Kills, col = "red")
+plot(Deaths, col = "gray")
+plot(Assists, col = "orange")
+plot(KDA, col = "black")
+plot(CS, col = "brown")
+plot(CSperMin, col = "tan")
+plot(Gold, col = "yellow")
+plot(GoldperMin, col = "beige")
+plot(Kpar, col = "green")
+
+par(mfrow = c(1,1))
+CSMinWins.lm = lm(WinRate ~ CSperMin, data = proMidlaner.df)
+
+plot(WinRate ~ CSperMin)
+abline(CSMinWins.lm, col = "red")
+summary(CSMinWins.lm) #essentially no relationship between CSperMinute and winrate (R^2 = 0.05)
+
+plot(WinRate ~ ln(CSperMin)) #no relationship between win rate and natural log of creep score either
+
+#lets try another model
+
+plot(WinRate ~ GoldperMin, xlab = "Gold per Minute", ylab = "Win Rate", main = "Worlds Midlaner Win Rates vs Gold per Min (2011 -
+     2022")
+
+GoldWins.lm = lm(WinRate ~ GoldperMin)
+summary(GoldWins.lm) #weak relationship between gold per min and winning, R^2 = 0.3486
+
+abline(GoldWins.lm, col = "red")
+
+#lnGoldWins.lm = lm(WinRate ~ ln(GoldperMin))
+#summary(lnGoldWins.lm)       #slightly worse relationship
+
+CSGold.lm = lm(CSperMin ~ GoldperMin, data = proMidlaner.df)
+plot(CSperMin ~ GoldperMin)
+abline(CSGold.lm, col = "red")
+
+summary(CSGold.lm) #pretty strong relationship. 65% of variability in Gold per Min is explained by CS per Min
+#this is expected since CS is one of the main sources of income in the game
+
+#now lets see what the association is between goldpermin and winning/losing for pretty high gold per min values
+#(400 per min or higher)
+
+newdata <- subset(proMidlaner.df, GoldperMin >= 400,
+                  select=c(WinRate, GoldperMin))
+
+plot(WinRate ~ GoldperMin, data = newdata)
+GoldWins2.lm = lm(WinRate ~ GoldperMin, data = newdata)
+
+summary(GoldWins2.lm)
+abline(GoldWins2.lm, col = "red") #essentially no relationship between gold per min and winning, in fact
+#the relationship is even weaker with a worse p-value and R^2 = 0.1625
+
+diff(range(GoldWins2.lm$fitted.values)) #the range of win rate is 35% for gold per min 400 and above
+
+GoldWr = GoldWins2.lm$fitted.values
+min(GoldWr) #minimum predicted win rate is 49.997%
+max(GoldWr) #maximum predicted win rate is 85.108%
+
+#we can conclude that while INDIVIDUAL 
+#gold per min is not irrelevant to winning or losing it doesn't explain much
+#in Win-Loss variability
+
+par(mfrow = c(1,1))
+
+KparWins.lm = lm(WinRate ~ Kpar, data = proMidlaner.df)
+summary(KparWins.lm) #no association between kill participation and win rate
+
+plot(WinRate ~ Kpar, data = proMidlaner.df)
+abline(KparWins.lm, col = "red") #there is so little association there's essentially no difference between
+#having the minimum kill participation and the maximum
+
+KparComplete = na.omit(Kpar) #removes the null values so we can do calculations
+
+mean(KparComplete) #mean kill participation is 66.1%
+min(KparComplete) #minimum kill participation is 35%
+max(KparComplete) #maximum kill participation is 88%
+
+DeathWins.lm = lm(WinRate ~ Deaths, data = proMidlaner.df)
+summary(DeathWins.lm) #poor relationship. R^2 = 0.2356 indicating minimal linear relationship
+
+plot(WinRate ~ Deaths)
+abline(DeathWins.lm, col = "red")
+
+#does the relationship improve if we take the natural log?
+
+plot(WinRate ~ ln(Deaths))
+lnDeathWins.lm = lm(WinRate ~ ln(Deaths), data = proMidlaner.df)
+summary (lnDeathWins.lm) #slightly better model R^2 = 0.241 but still a bad fit
+abline(lnDeathWins.lm, col = "red")
+
+#construct 3 more models
+
+KillWins.lm = lm (WinRate ~ Kills, data = proMidlaner.df)
+AssistWins.lm = lm (WinRate ~ Assists, data = proMidlaner.df)
+KDAWins.lm = lm (WinRate ~ KDA, data = proMidlaner.df)
+
+summary(KillWins.lm) #R^2 = 0.2945, this is also a weak model. pval very very low so there is a 
+#meaningful relationship, though a weak one
+
+plot(WinRate ~ Kills)
+abline(KillWins.lm, col = "red")
+
+lnKillWins.lm = lm(WinRate ~ ln(Kills), data = proMidlaner.df)
+summary(lnKillWins.lm) #slightly better model but it still sucks
+
+summary(AssistWins.lm) #R^2 = 0.395, improved linear model. Very low p value indicating a strong relationship
+
+plot(WinRate ~ Assists)
+abline(AssistWins.lm, col = "red")
+
+lnAssistWins.lm = lm(WinRate ~ ln(Assists), data = proMidlaner.df)
+summary(lnAssistWins.lm) #slightly improved linear model R^2 = 0.402 but not enough to justify using this instead
+
+summary(KDAWins.lm) #moderate linear relationship, R^2 = 0.5402, extremely low pvalue
+
+plot(WinRate ~ KDA)
+abline(KDAWins.lm, col = "red", lwd = 2)
+
+WRmodel1.lm = lm (WinRate ~ Kills + Assists + Deaths + KDA, data = proMidlaner.df)
+summary(WRmodel1.lm) #all of these factors are significant taken together, with KDA being 
+#borderline significant
+WRmodel1.aic = step(WRmodel1.lm)
+
+WRmodel2.lm = lm(WinRate ~ Kills + Assists + Deaths, data = proMidlaner.df)
+
+par(mfrow=c(2,2))
+summary(WRmodel2.lm) #strong model, all coefficients are significant with R^2 = 0.6151
+
+plot(WRmodel2.lm) #no outliers here, residuals are of generally equal variance and are normally distributed
+#per the Q-Q norm plot. This is a good model overall. 
+
+ln(KDA) #returns natural log of all KDA values
+
+par(mfrow = c(1,1))
+plot(WinRate ~ ln(KDA), ylab = "Win Rate", xlab = "Natural log of Pro Midlaner KDA", main = "Worlds Midlaner Win Rates vs 
+    Natural log of KDA (2011 - 2022")
+
+lnKDAWins.lm = lm(WinRate ~ ln(KDA), data = proMidlaner.df)
+abline(lnKDAWins.lm, col = "red", lwd = 2)
+
+#is this a better representation of the relationship? That is, do we get a better model this way
+
+summary(lnKDAWins.lm) #the relationship is greatly improved with R^2 = 0.605, just as good as the three variable model.
+#we can either use KDA or the linear combination of kills deaths and asssists in wrmodel2 as equivalently accurate linear models
+#to predict pro midlaner win rates.
+
+par(mfrow = c(2,2))
+plot(lnKDAWins.lm) #we can observe in the regression diagnostic plots that we may have one or two outliers, those being
+#observation 119 and 157. We will investigate these further below
+
+cooksd = cooks.distance(lnKDAWins.lm)
+mean(cooksd)
+max(cooksd) #the maximum cook's distance is six times the mean so we likely have an outlier
+
+par(mfrow = c(1,1))
+
+plot(cooksd, cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 5*mean(cooksd, na.rm=T), col="red")  #cutoff line is going to be 5 times the mean cook's distance
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>5*mean(cooksd, na.rm=T),names(cooksd),""), col="red") #observation 119 is
+#the observation with the highest cook's distance by far. We treat it as an outlier and wish to exclude it from the analysis.
+
+influential = as.numeric(names(cooksd)[(cooksd > 5*mean(cooksd, na.rm=T))])
+head(proMidlaner.df [influential, ])
+
+proMidlaner_2.df = proMidlaner.df[-influential, ] #we're creating a new dataframe so we can plot the same linear model excluding
+#the outlier in the original dataset
+
+plot(WinRate ~ ln(KDA), data = proMidlaner_2.df)
+lnKDAWins2.lm = lm(WinRate ~ ln(KDA), data = proMidlaner_2.df)
+summary(lnKDAWins2.lm) #we obtain a slightly improved fit, R^2 = 0.6122, through removing the outlier
+
+abline(lnKDAWins2.lm, col = "red")
+
+par(mfrow = c(2,2))
+plot(lnKDAWins2.lm) #residual diagnostics are significantly improved for the linear model
+
+WRmodel3.lm = lm(WinRate ~ Kills + Assists + Deaths + GoldperMin, data = proMidlaner.df)
+summary(WRmodel3.lm)
+
+#R^2 = 0.6402
+
+plot(WRmodel3.lm) #pretty good model approximately normal in the residuals, mostly evenly distributed,
+#no outliers
+
+#check for multicollinearity
+
+vif(WRmodel3.lm) #no VIF values above 1.6, multicollinearity is minimal
+
+#now we are going to plot some histograms...
+
+mean(Kills)
+sd(Kills)
+
+mean(Deaths)
+sd(Deaths)
+
+mean(Assists)
+sd(Assists)
+
+mean(KDA)
+sd(KDA)
+
+par(mfrow=c(2,2))
+par(bg = "gray")
+
+hist(Kills, col = "Red", freq = FALSE)
+curve(dnorm(x, mean= 3.293758, sd= 1.245573), 
+      col="darkblue", lwd=2, add=TRUE, yaxt="n")
+hist(Deaths, col = "Black", freq = FALSE)
+curve(dnorm(x, mean= 2.594061, sd= 0.8788372), 
+      col="white", lwd=2, add=TRUE, yaxt="n")
+hist(Assists, col = "Brown", freq = FALSE)
+curve(dnorm(x, mean= 4.881212, sd= 1.625394), 
+      col="white", lwd=2, add=TRUE, yaxt="n")
+hist(KDA, col = "Gray", freq = FALSE)
+curve(dnorm(x, mean= 3.576364, sd= 1.774015), 
+      col="darkblue", lwd=2, add=TRUE, yaxt="n")
+
+par(mfrow = c(1,1))
+
+#now we are going to do some barplots of pro midlaner data
+
+par(bg = "white")
+
+Killcounts <- table(Kills)
+barplot(Killcounts, main="Avg Number of Kills per Midlaner",
+        xlab="Avg Number of Kills")
+
